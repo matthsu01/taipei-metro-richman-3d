@@ -1,0 +1,56 @@
+# 檔案路徑：.github/workflows/deploy.yml
+# 功能：當推送至 main 分支時，自動編譯「台北捷運大富翁 3D」並部署至 GitHub Pages
+name: Deploy Taipei Metro Richman 3D to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+# 授權 GitHub Actions 部署至 GitHub Pages 所需的權限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時僅允許一個部署工作進行，避免舊的排程覆蓋最新部署
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. 檢出倉庫原始碼 (Checkout)
+        uses: actions/checkout@v4
+
+      - name: 2. 安裝 Node.js 22 環境與設定 NPM 快取
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: 3. 安裝專案相依套件 (Dependencies)
+        run: npm install
+
+      - name: 4. 執行 Vite 生產環境建置 (產生 dist/index.html)
+        run: npm run build
+
+      - name: 5. 建立 .nojekyll 避免 GitHub Jekyll 過濾底線檔案
+        run: touch ./dist/.nojekyll
+      - name: 6. 設定 GitHub Pages 環境配置
+        uses: actions/configure-pages@v5
+
+      - name: 7. 上傳 dist 建置產物 (Upload Artifact)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "./dist"
+
+      - name: 8. 正式部署至 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
